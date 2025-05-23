@@ -5,10 +5,16 @@
 コメントビューアのわんコメと、読み上げソフトのVOICEPEAKを連携するPythonスクリプトです。  
 わんコメのコメントの読み上げをVOICEPEAKのキレイな読み上げで読ませることができます。  
 
-Windowsを利用されている方は「ゆかコネNEO」を利用された方が手軽かと思いますので、そちらをご利用ください。  
+mac用に作られたpythonスクリプトをWindows環境下で動くように修正したものです
+
+[元リポジトリ](https://github.com/KanashisaBlue/OneComme-VOICEPEAK)
+
+Windowsを利用されている方は「ゆかコネNEO」でもVOICEPEAKが使用できるのでご検討ください。
 https://nmori.github.io/yncneo-Docs/
 
-このPythonスクリプトはゆかコネNEOが利用できない環境（主にMacOS）での利用を想定しています。  
+このPythonスクリプトはゆかコネNEOが使いこなせない人Windows環境の方（私）に向けたものです。  
+Macでも動くようにするつもりですがMacを所持していないので動かない場合はコードを修正してご利用ください。
+
 Pythonに関する知識はほぼ必要ありませんが、「ターミナル」というアプリを起動してコマンドを叩き、Pythonスクリプトを起動させるというレベルくらいの知識は必要です。頑張りたい方は以下のページを見て勉強してください。
 
 初心者向け！5分で分かるMacターミナルの使い方 基礎コマンドも紹介  
@@ -18,14 +24,11 @@ https://tech-camp.in/note/technology/18730/
 
 このPythonスクリプトを利用することによって発生したことによるトラブルや損害等に関して、当方は一切の責任を負いません。自己責任の下でご利用ください。  
 
-このPythonスクリプトはわんコメ、VOICEPEAKともに非公認の野良スクリプトです。両運営に対してこのPythonスクリプトに関する問い合わせなどはお控えください。 
+このPythonスクリプトはわんコメ、VOICEPEAKともに非公認の野良スクリプトです。両運営と元リポジトリの作者様に対してこのPythonスクリプトに関する問い合わせなどはお控えください。 
 
 両アプリのいずれかでバージョンアップ等による仕様変更が起きた場合、急に動かなくなる恐れがあります。バージョンアップを契機にして動かなくなった場合は、このページの最下部にある連絡先からアプリケーションのバージョン情報と合わせてご連絡ください。
 
 # Environment
-
-#### MacOS（64bit）  
-Intel CPUおよびAppleシリコンのMacOS上で動作します。 古い環境（32bit環境）では動きません。
 
 #### Python（3.11系以降）
 動作確認できているのはバージョン3.11.6〜3.13.3です（2025年4月15日現在）。 
@@ -48,6 +51,8 @@ https://www.sejuku.net/blog/50417
 - websockets
 
 # Requirement
+Windwos環境で使用する場合はFFMPEGのインストールが必要です。
+https://ffmpeg.org/
 
 #### ■わんコメ
 バージョン5.0.0以降。可能な限り最新のバージョンをご利用ください。（2025年4月15日現在、v7.2.0にて動作確認ができています）。  
@@ -75,8 +80,8 @@ https://www.ah-soft.com/commercial/voicepeak/private/
 
 # Usage
 
-最新版（v2.4.0以降）をダウンロードして任意の場所に配置してください（v1系はサポート外です）。  
-https://github.com/KanashisaBlue/OneComme-VOICEPEAK/archive/refs/heads/main.zip
+最新版をダウンロードして任意の場所に配置してください。  
+https://github.com/ari-71/OneComme-VOICEPEAK/archive/refs/heads/main.zip
 
 .env.example ファイルを .env にリネームして、必要に応じて内容を変更してください（変更しなくても動くとは思いますが、VOICEPEAKをデフォルトの場所以外にインストールしてる場合などは変更が必要になります）
 
@@ -104,6 +109,8 @@ https://kanashisa.blue/2023/12/10/onecomme-voicepeak/
 VOICEPEAK側は特に設定は不要ですが、辞書機能は読み上げに反映されるので、適宜利用してください。
 
 # FAQ
+#### ?.タイムラグを短くできませんか？
+A. VOICEPEAKの音声生成で時間がかかっているため無理です。
 
 #### ？.エラーが出て動きません
 A. 細かいサポートはしてませんので、各自ググるなどして対応してください。エラー内容について要点を簡潔に分かりやすくまとめて連絡いただければ対応させていただきます。書かれている内容がよく分からないなどの場合は対応しません。ご了承ください。
@@ -114,23 +121,19 @@ A. こちらも細かいサポートはできません。各自で頑張って�
 #### ？たまにVOICEPEAKがエラーを出す（変なウィンドウが出る）
 A. 原因がよく分からないのですが、VOICEPEAKのバージョン1.2.6くらいから出るようになりました。とりあえずVOICEPEAKのエラーは放置して大丈夫です。エラーが起きた際にはリトライ処理を入れているので、エラーで読み上げられないということはほぼ発生しないはずです。立ち上がったウィンドウはそのまま消して問題ありません。
 
-#### ?ターミナル上で謎の文字列がでてくる
-
-A. コマンドを読み上げる度にターミナル上に以下のアラートが複数出力される場合がありますが、動作に影響はありません。  
-"iconv_open is not supported"  
-"WARNING: Secure coding is automatically enabled for restorable state! However, not on all supported macOS versions of this application. Opt-in to secure coding explicitly by implementing NSApplicationDelegate.applicationSupportsSecureRestorableState:."  
-よく分かりませんが、voicepeak上で出ているアラートのようです。 
-
 #### ？Pythonスクリプトとかなんか難しい。簡単に扱えるようにアプリ化してほしい
 A. 個人的にはアプリにするほどでもないと思いますが、Pythonの環境構築やターミナルの操作が難しいと感じる人は多いとおもうので、そういう要望が多ければ考えます。
 
 # Contribution
 
-もし不具合や要望などありましたらXのDMまでお願いします。  
+もし不具合や要望などありましたらXのDM(@no_71_ari)までお願いします。  
 
 # Revision History
-
 このPythonスクリプトをバージョンアップする際は、スクリプトを停止してから onecomme_voicepeak_threading_ws.py を上書きしてください。.env の内容は最新の .env.example を参考にして適宜調整してください。  
+
+v1.0.0 (2025/05/24) Windowsに対応
+
+# Original Revision History
 
 v2.4.1 （2024/12/10） 特定の絵文字が入ると読み上げのボイスの性別を変更できるようにしました  
 v2.4.0 （2024/12/7） キャラクターボイスの宮舞モカとフリモメンに対応しました。初期設定にデフォルトの感情を設定できるようにしました。特定の絵文字が入ると感情を込めて読み上げられる機能を切ることができるようにしました。キャラクターボイスを使用した場合に読み上げ失敗していた不具合を修正しました。  
@@ -147,9 +150,12 @@ v1.0.1 （2023/12/10） わんコメと重複する機能を削除しました
 v1.0.0 （2023/12/10） 初期リリース
 
 # Author
+あり
+X（旧Twitter）：https://x.com/no_71_ari （連絡はこちらのDMへ）  
 
+## 元リポジトリの作者様
 悲しさ  
-X（旧Twitter）：https://x.com/KanashisaBlue （連絡はアカウントフォローの上、こちらのDMへ）  
+X（旧Twitter）：https://x.com/KanashisaBlue
 ブログ：https://kanashisa.blue  
 YouTube：https://www.youtube.com/@KanashisaBlue
 
