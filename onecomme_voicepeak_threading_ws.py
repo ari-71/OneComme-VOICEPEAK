@@ -44,7 +44,11 @@ async def ws_recv(websocket):
                 if config.DEBUG_FLAG:
                     print('わんコネからの接続情報を確認しました')
 
-                voice_volume = str(round(float(data['data']['config']['speech']['volume']) * 2.0 * float(config.VOICE_VOLUME), 2))
+                # TODO: いい感じにする
+                # afplay用
+                # voice_volume = str(round(float(data['data']['config']['speech']['volume']) * 2.0 * float(config.VOICE_VOLUME), 2))
+                # ffplay用
+                voice_volume = str(int(round(float(data['data']['config']['speech']['volume']) * 1.0 * float(config.VOICE_VOLUME), 1)))
 
                 if float(data['data']['config']['speech']['rate']) < 1.0:
                     voice_speed = str(round(100.0 - ((1.0 - float(data['data']['config']['speech']['rate'])) * 50.0 / 0.9)))
@@ -63,8 +67,11 @@ async def ws_recv(websocket):
                     print('読み上げピッチ：' + voice_pitch)
 
             elif data['type'] == 'config':
-
-                voice_volume = str(round(float(data['data']['speech']['volume']) * 2.0 * float(config.VOICE_VOLUME), 2))
+                # TODO: いい感じにする
+                # afplay用
+                # voice_volume = str(round(float(data['data']['speech']['volume']) * 2.0 * float(config.VOICE_VOLUME), 2))
+                # ffplay用
+                voice_volume = str(int(round(float(data['data']['speech']['volume']) * 1.0 * float(config.VOICE_VOLUME), 1)))
 
                 if float(data['data']['speech']['rate']) < 1.0:
                     voice_speed = str(round(100.0 - ((1.0 - float(data['data']['speech']['rate'])) * 50.0 / 0.9)))
@@ -168,14 +175,23 @@ async def ws_recv(websocket):
                                     read_voice_narrator = read_voice_narrator.replace('Frimomen', 'Miyamai Moca')
 
                             #読み上げファイル作成コマンド作成
+                            read_command = [
+                                config.VOICEPEAK_APP_FILEPATH,
+                                "-s", read_comment,
+                                "--speed", voice_speed,
+                                "--pitch", voice_pitch,
+                                "-o", config.OUTPUT_VOICE_DIRPATH + 'vp_' + comment_id + '.wav',
+                                "-n", read_voice_narrator
+                            ]
                             if 'Japanese' in read_voice_narrator:
-                                read_command = config.VOICEPEAK_APP_FILEPATH + ' -s "' + read_comment + '" --speed ' + voice_speed  + ' --pitch ' + voice_pitch + ' -o ' + config.OUTPUT_VOICE_DIRPATH + '/vp_' + comment_id + '.wav -n "' + read_voice_narrator + '"' + ' -e happy=' + happy + ',sad=' + sad + ',fun=' + fun + ',angry=' + angry
+                                option = ['-e', 'happy=' + happy + ',sad=' + sad + ',fun=' + fun + ',angry=' + angry]
                             elif 'Miyamai Moca' in read_voice_narrator:
-                                read_command = config.VOICEPEAK_APP_FILEPATH + ' -s "' + read_comment + '" --speed ' + voice_speed  + ' --pitch ' + voice_pitch + ' -o ' + config.OUTPUT_VOICE_DIRPATH + '/vp_' + comment_id + '.wav -n "' + read_voice_narrator + '"' + ' -e bosoboso=' + bosoboso + ',doyaru=' + doyaru + ',honwaka=' + honwaka + ',angry=' + angry + ',teary=' + teary
+                                option = ['-e', 'bosoboso=' + bosoboso + ',doyaru=' + doyaru + ',honwaka=' + honwaka + ',angry=' + angry + ',teary=' + teary]
                             elif 'Frimomen' in read_voice_narrator:
-                                read_command = config.VOICEPEAK_APP_FILEPATH + ' -s "' + read_comment + '" --speed ' + voice_speed  + ' --pitch ' + voice_pitch + ' -o ' + config.OUTPUT_VOICE_DIRPATH + '/vp_' + comment_id + '.wav -n "' + read_voice_narrator + '"' + ' -e happy=' + happy + ',angry=' + angry + ',sad=' + sad + ',ochoushimono=' + ochoushimono
-                            else:
-                                read_command = config.VOICEPEAK_APP_FILEPATH + ' -s "' + read_comment + '" --speed ' + voice_speed  + ' --pitch ' + voice_pitch + ' -o ' + config.OUTPUT_VOICE_DIRPATH + '/vp_' + comment_id + '.wav -n "' + read_voice_narrator + '"'
+                                option = ['-e', 'happy=' + happy + ',angry=' + angry + ',sad=' + sad + ',ochoushimono=' + ochoushimono]
+                            elif 'Kasane Teto' in read_voice_narrator:
+                                # TODO: とりあえず固定値
+                                read_command.extend(['-e', 'teto-overactive=0,teto-low-key=0,teto-whisper=0,teto-powerful=0,teto-sweet=0'])
 
                             if config.DEBUG_FLAG:
                                 print(read_command)
@@ -184,13 +200,15 @@ async def ws_recv(websocket):
                             for i in range(config.MAX_RETRY):
                                 if config.DEBUG_FLAG:
                                     #read_command_result = 1 #失敗テスト用
-                                    read_command_result = subprocess.call([read_command], shell = True)
+                                    p = subprocess.Popen(read_command, shell = True)
                                 else:
-                                    read_command_result = subprocess.call([read_command], shell = True, stderr = subprocess.PIPE)
+                                    p = subprocess.Popen(read_command, shell = True, stderr = subprocess.PIPE)
 
+                                read_command_result = p.wait()
                                 if read_command_result == 0:
                                     #キューに追加する（別スレッドでデキューする）
                                     comment_que.put((comment_id, voice_volume))
+                                    print('success')
 
                                     #コメントIDを保存
                                     read_ids.add(commnent['data']['id'])
@@ -242,18 +260,35 @@ def func_read():
         comment_tuple = comment_que.get()
 
         #読み上げファイル存在チェック
-        read_file_path = config.OUTPUT_VOICE_DIRPATH + '/vp_' + str(comment_tuple[0]) + '.wav'
+        file_name = 'vp_' + str(comment_tuple[0]) + '.wav'
+        read_file_path = config.OUTPUT_VOICE_DIRPATH + file_name
         is_file = os.path.isfile(read_file_path)
 
         #読み上げ音量
-        read_volume = comment_tuple[1];
+        read_volume = comment_tuple[1]
+        # TODO: optionをプレイヤーごとに切り替えできるようにしたい
+        # afplay
+        # play_cmd = [
+        #     config.PLAYER_FILEPATH,
+        #     read_file_path ,
+        #     '-v', read_volume,
+        # ]
+        # FFPLAY用のoption
+        play_cmd = [
+            config.PLAYER_FILEPATH,
+            '-nodisp',
+            '-autoexit',
+            '-volume', read_volume,
+            read_file_path 
+        ]
 
         if is_file:
             if config.DEBUG_FLAG:
-                subprocess.call([config.PLAYER_FILEPATH + ' ' + read_file_path + ' -v ' + read_volume], shell = True)
+                proc = subprocess.Popen(play_cmd, shell = True)
             else:
-                subprocess.call([config.PLAYER_FILEPATH + ' ' + read_file_path + ' -v ' + read_volume], shell = True, stderr = subprocess.PIPE)
+                proc = subprocess.Popen(play_cmd, shell = True, stderr = subprocess.PIPE)
 
+            proc.wait()
             #読み上げファイルを削除
             os.remove(read_file_path)
 
@@ -266,9 +301,9 @@ def func_read():
             is_file = os.path.isfile(config.EXCEPTION_OUTPUT_VOICE_FILEPATH)
             if is_file:
                 if config.DEBUG_FLAG:
-                    subprocess.call([config.PLAYER_FILEPATH + ' ' + config.EXCEPTION_OUTPUT_VOICE_FILEPATH + ' -v ' + read_volume], shell = True)
+                    proc = subprocess.Popen(play_cmd, shell = True)
                 else:
-                    subprocess.call([config.PLAYER_FILEPATH + ' ' + config.EXCEPTION_OUTPUT_VOICE_FILEPATH + ' -v ' + read_volume], shell = True, stderr = subprocess.PIPE)
+                    proc = subprocess.Popen(play_cmd, shell = True, stderr = subprocess.PIPE)
             else:
                 if config.DEBUG_FLAG:
                     print('読み上げができなかった場合（エラー等）に読み上げるwavファイルがないので無音です。読み上げ失敗用のwavファイルを用意し、.envのEXCEPTION_OUTPUT_VOICE_FILEPATHを設定してください')
