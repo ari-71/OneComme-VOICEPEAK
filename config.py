@@ -7,7 +7,9 @@ load_dotenv(override = True)
 # 環境変数を参照
 import os
 VOICE_NARRATOR = 'Japanese Female 1' if os.getenv('VOICE_NARRATOR') == None else os.getenv('VOICE_NARRATOR')
-VOICE_VOLUME = '0.15' if os.getenv('VOICE_VOLUME') == None else os.getenv('VOICE_VOLUME')
+# mac 
+# VOICE_VOLUME = '0.15' if os.getenv('VOICE_VOLUME') == None else os.getenv('VOICE_VOLUME')
+VOICE_VOLUME = '50' if os.getenv('VOICE_VOLUME') == None else os.getenv('VOICE_VOLUME')
 
 EMOTION_HAPPY = '0' if os.getenv('EMOTION_HAPPY') == None else os.getenv('EMOTION_HAPPY')
 EMOTION_SAD = '0' if os.getenv('EMOTION_SAD') == None else os.getenv('EMOTION_SAD')
@@ -25,6 +27,10 @@ MAX_NUM_CHARACTERS = 136 if os.getenv('MAX_NUM_CHARACTERS') == None else int(os.
 DEBUG_FLAG = False if os.getenv('DEBUG_FLAG') == None else bool(strtobool(os.getenv('DEBUG_FLAG')))
 EXCEPTION_OUTPUT_VOICE_FILEPATH = os.getenv('EXCEPTION_OUTPUT_VOICE_FILEPATH')
 MAX_RETRY = 3 if os.getenv('MAX_RETRY') == None else int(os.getenv('MAX_RETRY'))
-VOICEPEAK_APP_FILEPATH = '/Applications/voicepeak.app/Contents/MacOS/voicepeak' if os.getenv('VOICEPEAK_APP_FILEPATH') == None else os.getenv('VOICEPEAK_APP_FILEPATH')
-AFPLAY_FILEPATH = '/usr/bin/afplay' if os.getenv('AFPLAY_FILEPATH') == None else os.getenv('AFPLAY_FILEPATH')
-OUTPUT_VOICE_DIRPATH = '/tmp' if os.getenv('OUTPUT_VOICE_DIRPATH') == None else os.getenv('OUTPUT_VOICE_DIRPATH')
+VOICEPEAK_APP_FILEPATH = 'C:\\Program Files\\VOICEPEAK\\voicepeak.exe' if os.getenv('VOICEPEAK_APP_FILEPATH') == None else os.getenv('VOICEPEAK_APP_FILEPATH')
+PLAYER_FILEPATH = '%USERPROFILE%\\AppData\\Local\\Microsoft\\WinGet\\Links\\ffplay.exe' if os.getenv('PLAYER_FILEPATH') == None else os.getenv('PLAYER_FILEPATH')
+OUTPUT_VOICE_DIRPATH = '%TEMP%' if os.getenv('OUTPUT_VOICE_DIRPATH') == None else os.getenv('OUTPUT_VOICE_DIRPATH')
+# mac 
+# VOICEPEAK_APP_FILEPATH = '/Applications/voicepeak.app/Contents/MacOS/voicepeak' if os.getenv('VOICEPEAK_APP_FILEPATH') == None else os.getenv('VOICEPEAK_APP_FILEPATH')
+# PLAYER_FILEPATH = '/usr/bin/afplay' if os.getenv('PLAYER_FILEPATH') == None else os.getenv('PLAYER_FILEPATH')
+# OUTPUT_VOICE_DIRPATH = '/tmp' if os.getenv('OUTPUT_VOICE_DIRPATH') == None else os.getenv('OUTPUT_VOICE_DIRPATH')
