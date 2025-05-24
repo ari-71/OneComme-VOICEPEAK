@@ -1,28 +1,28 @@
-# Copyright (c) 2023-2024 悲しさ（ https://x.com/KanashisaBlue ）
+# Copyright (c) 2025 あり（ https://x.com/no_71_ari）
 # Released under the MIT license
 # https://opensource.org/licenses/mit-license.php
 
 # わんコメ-VOICEPEAK 連携スクリプト（わんコメ バージョン5以降をご利用ください）
-# v2.4.1
+# v0.0.1
 
-import config
 import json
 import os
 import re
 import unicodedata
 import subprocess
 import asyncio
-import websockets
 import uuid
 import time
 import signal
 import random
-
 from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
-# websocket受信処理
-async def ws_recv(websocket):
+import websockets
+import config
+
+async def ws_recv(websocket, comment_que):
+    """websocket受信処理"""
 
     try:
         print('読み上げが可能な状態です... このスクリプトを停止する場合は ctrl + c で停止してください')
@@ -35,7 +35,6 @@ async def ws_recv(websocket):
         read_ids = set()
 
         while True:
-            
             #データを受信するまで待つ（ブロッキング）
             data = json.loads(await websocket.recv())
 
@@ -45,10 +44,11 @@ async def ws_recv(websocket):
                     print('わんコネからの接続情報を確認しました')
 
                 # TODO: いい感じにする
+                onecomme_volume = data['data']['config']['speech']['volume']
                 # afplay用
-                # voice_volume = str(round(float(data['data']['config']['speech']['volume']) * 2.0 * float(config.VOICE_VOLUME), 2))
+                # voice_volume = str(round(float(onecomme_volume) * 2.0 * float(config.VOICE_VOLUME), 2))
                 # ffplay用
-                voice_volume = str(int(round(float(data['data']['config']['speech']['volume']) * 1.0 * float(config.VOICE_VOLUME), 1)))
+                voice_volume = str(int(round(float(onecomme_volume ) * 1.0 * float(config.VOICE_VOLUME), 1)))
 
                 if float(data['data']['config']['speech']['rate']) < 1.0:
                     voice_speed = str(round(100.0 - ((1.0 - float(data['data']['config']['speech']['rate'])) * 50.0 / 0.9)))
@@ -95,7 +95,6 @@ async def ws_recv(websocket):
 
                     #読み上げるファイル名で使用する
                     comment_id = str(uuid.uuid4())
-                    
                     #送られてきたデータに読み上げるテキストがある場合のみ処理を行う
                     if 'speechText' in commnent['data']:
 
@@ -183,6 +182,7 @@ async def ws_recv(websocket):
                                 "-o", config.OUTPUT_VOICE_DIRPATH + 'vp_' + comment_id + '.wav',
                                 "-n", read_voice_narrator
                             ]
+                            option = []
                             if 'Japanese' in read_voice_narrator:
                                 option = ['-e', 'happy=' + happy + ',sad=' + sad + ',fun=' + fun + ',angry=' + angry]
                             elif 'Miyamai Moca' in read_voice_narrator:
@@ -191,7 +191,11 @@ async def ws_recv(websocket):
                                 option = ['-e', 'happy=' + happy + ',angry=' + angry + ',sad=' + sad + ',ochoushimono=' + ochoushimono]
                             elif 'Kasane Teto' in read_voice_narrator:
                                 # TODO: とりあえず固定値
-                                read_command.extend(['-e', 'teto-overactive=0,teto-low-key=0,teto-whisper=0,teto-powerful=0,teto-sweet=0'])
+                                option = ['-e', 'teto-overactive=0,teto-low-key=0,teto-whisper=0,teto-powerful=0,teto-sweet=0']
+
+                            if len(option) > 0:
+                                read_command.extend(option)
+
 
                             if config.DEBUG_FLAG:
                                 print(read_command)
@@ -202,9 +206,13 @@ async def ws_recv(websocket):
                                     #read_command_result = 1 #失敗テスト用
                                     p = subprocess.Popen(read_command, shell = True)
                                 else:
-                                    p = subprocess.Popen(read_command, shell = True, stderr = subprocess.PIPE)
+                                    p = subprocess.Popen(read_command,
+                                                         shell = True,
+                                                         stderr = subprocess.PIPE
+                                                         )
 
                                 read_command_result = p.wait()
+
                                 if read_command_result == 0:
                                     #キューに追加する（別スレッドでデキューする）
                                     comment_que.put((comment_id, voice_volume))
@@ -227,31 +235,30 @@ async def ws_recv(websocket):
                     else:
                         if config.DEBUG_FLAG:
                             print('わんコメの読み上げが有効になっていません : ' + commnent['service'])
-            
     except Exception as e:
         print('このスクリプトの異常動作もしくはわんコメのアプリケーション終了を検知しました。このスクリプトをctrl + cで終了してください')
         print(f"\"{e}\"")
 
-# websocket接続処理
-async def ws_connect():
-    
+async def ws_connect(comment_que):
+    """ websocket接続処理 """
     try:
-        async with websockets.connect("ws://127.0.0.1:11180/sub?p=comments,config") as websocket: #固定のため直書き
+        #固定のため直書き
+        async with websockets.connect("ws://127.0.0.1:11180/sub?p=comments,config") as websocket:
             print('わんコメとの接続が完了しました。')
-            await ws_recv(websocket)
+            await ws_recv(websocket,comment_que)
 
     except Exception as e:
         print('WebSocketの接続ができません。このスクリプトをctrl + cで一度終了し、わんコメを立ち上げてから再度起動してください。')
         print(f"\"{e}\"")
 
-# 音声データ作成用スレッド用関数
-def func_make():
+def func_make(comment_que):
+    """ 音声データ作成用スレッド用関数 """
 
-    asyncio.run(ws_connect())
+    asyncio.run(ws_connect(comment_que))
     exit() #ここまで処理は来ない
 
-#音声データ読み上げ用スレッド用関数
-def func_read():
+def func_read(comment_que):
+    """ 音声データ読み上げ用スレッド用関数 """
 
     #キューに入ってるファイルを一つづつ読み上げる
     while True:
@@ -279,7 +286,7 @@ def func_read():
             '-nodisp',
             '-autoexit',
             '-volume', read_volume,
-            read_file_path 
+            read_file_path
         ]
 
         if is_file:
@@ -297,7 +304,6 @@ def func_read():
             if config.DEBUG_FLAG:
                 print('読み上げ実行失敗。以下のファイルが存在していません')
                 print(read_file_path)
-            
             is_file = os.path.isfile(config.EXCEPTION_OUTPUT_VOICE_FILEPATH)
             if is_file:
                 if config.DEBUG_FLAG:
@@ -306,10 +312,11 @@ def func_read():
                     proc = subprocess.Popen(play_cmd, shell = True, stderr = subprocess.PIPE)
             else:
                 if config.DEBUG_FLAG:
-                    print('読み上げができなかった場合（エラー等）に読み上げるwavファイルがないので無音です。読み上げ失敗用のwavファイルを用意し、.envのEXCEPTION_OUTPUT_VOICE_FILEPATHを設定してください')
+                    print('読み上げができなかった場合（エラー等）に読み上げるwavファイルがないので無音です。')
+                    print('読み上げ失敗用のwavファイルを用意し、.envのEXCEPTION_OUTPUT_VOICE_FILEPATHを設定してください')
 
-#メイン処理
-if __name__ == '__main__':
+def main():
+    """メイン処理"""
 
     #ctrl+cでスクリプト終了
     signal.signal(signal.SIGINT, signal.SIG_DFL)
@@ -319,8 +326,11 @@ if __name__ == '__main__':
 
     print('スクリプト起動...')
     with ThreadPoolExecutor() as executor:
-        executor.submit(func_make) #コメント音声データ作成スレッド
-        executor.submit(func_read) #コメント読み上げ処理スレッド
+        executor.submit(func_make(comment_que)) #コメント音声データ作成スレッド
+        executor.submit(func_read(comment_que)) #コメント読み上げ処理スレッド
 
     #通常はここまで処理は来ない
     print('スレッド関連のエラー発生')
+
+if __name__ == '__main__':
+    main()
