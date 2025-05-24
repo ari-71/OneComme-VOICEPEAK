@@ -15,7 +15,6 @@ import uuid
 import time
 import signal
 import random
-from concurrent.futures import ThreadPoolExecutor
 from queue import Queue
 
 import websockets
@@ -197,7 +196,6 @@ async def ws_recv(websocket, comment_que):
                     if len(option) > 0:
                         read_command.extend(option)
 
-
                     if config.DEBUG_FLAG:
                         print(read_command)
 
@@ -213,7 +211,7 @@ async def ws_recv(websocket, comment_que):
 
                         if read_command_result == 0:
                             #キューに追加する（別スレッドでデキューする）
-                            comment_que.put((comment_id, voice_volume))
+                            await comment_que.put((comment_id, voice_volume))
                             print('success')
 
                             #コメントIDを保存
@@ -222,7 +220,7 @@ async def ws_recv(websocket, comment_que):
                         elif i == config.MAX_RETRY - 1:
                             if config.DEBUG_FLAG:
                                 print('ファイル作成失敗 ' + str(i + 1) + '回目')
-                            comment_que.put((comment_id, voice_volume))
+                            await comment_que.put((comment_id, voice_volume))
                             break
                         else:
                             if config.DEBUG_FLAG:
@@ -237,7 +235,8 @@ async def ws_recv(websocket, comment_que):
         print('このスクリプトの異常動作もしくはわんコメのアプリケーション終了を検知しました。このスクリプトをctrl + cで終了してください')
         print(f"\"{e}\"")
 
-async def ws_connect(comment_que):
+async def func_make(comment_que):
+    """ 音声データ作成用関数 """
     """ websocket接続処理 """
     try:
         #固定のため直書き
@@ -249,24 +248,20 @@ async def ws_connect(comment_que):
         print('WebSocketの接続ができません。このスクリプトをctrl + cで一度終了し、わんコメを立ち上げてから再度起動してください。')
         print(f"\"{e}\"")
 
-def func_make(comment_que):
-    """ 音声データ作成用スレッド用関数 """
-
-    asyncio.run(ws_connect(comment_que))
-    exit() #ここまで処理は来ない
-
-def func_read(comment_que):
-    """ 音声データ読み上げ用スレッド用関数 """
+async def func_read(comment_que):
+    """ 音声データ読み上げ用関数 """
 
     #キューに入ってるファイルを一つづつ読み上げる
     while True:
 
         #コメントのキューを取得するまで待つ（キューが空になるとブロッキング）
-        comment_tuple = comment_que.get()
+        comment_tuple = await comment_que.get()
 
         #読み上げファイル存在チェック
         file_name = 'vp_' + str(comment_tuple[0]) + '.wav'
         read_file_path = config.OUTPUT_VOICE_DIRPATH + file_name
+        # FFPLAYは環境変数を理解しないので変換
+        read_file_path = os.path.expandvars(read_file_path)
         is_file = os.path.isfile(read_file_path)
 
         #読み上げ音量
@@ -313,22 +308,23 @@ def func_read(comment_que):
                     print('読み上げができなかった場合（エラー等）に読み上げるwavファイルがないので無音です。')
                     print('読み上げ失敗用のwavファイルを用意し、.envのEXCEPTION_OUTPUT_VOICE_FILEPATHを設定してください')
 
-def main():
+async def main():
     """メイン処理"""
 
     #ctrl+cでスクリプト終了
     signal.signal(signal.SIGINT, signal.SIG_DFL)
 
     #コメントデータキュー
-    comment_que = Queue()
+    comment_que = asyncio.Queue()
 
     print('スクリプト起動...')
-    with ThreadPoolExecutor() as executor:
-        executor.submit(func_make(comment_que)) #コメント音声データ作成スレッド
-        executor.submit(func_read(comment_que)) #コメント読み上げ処理スレッド
+    await asyncio.gather(
+        func_make(comment_que), #コメント音声データ作成
+        func_read(comment_que) #コメント読み上げ処理
+    )
 
     #通常はここまで処理は来ない
     print('スレッド関連のエラー発生')
 
 if __name__ == '__main__':
-    main()
+    asyncio.run(main())
