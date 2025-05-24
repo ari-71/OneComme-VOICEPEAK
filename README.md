@@ -80,7 +80,7 @@ https://www.ah-soft.com/commercial/voicepeak/private/
 
 # Usage
 
-最新版をダウンロードして任意の場所に配置してください。  
+最新版をダウンロードして任意の場所に配置してください。
 https://github.com/ari-71/OneComme-VOICEPEAK/archive/refs/heads/main.zip
 
 .env.example ファイルを .env にリネームして、必要に応じて内容を変更してください（変更しなくても動くとは思いますが、VOICEPEAKをデフォルトの場所以外にインストールしてる場合などは変更が必要になります）
@@ -131,7 +131,7 @@ A. 個人的にはアプリにするほどでもないと思いますが、Pytho
 # Revision History
 このPythonスクリプトをバージョンアップする際は、スクリプトを停止してから onecomme_voicepeak_threading_ws.py を上書きしてください。.env の内容は最新の .env.example を参考にして適宜調整してください。  
 
-v1.0.0 (2025/05/24) Windowsに対応
+v0.0.1 (2025/05/24) Windows環境下で動くようにしました。
 
 # Original Revision History
 
