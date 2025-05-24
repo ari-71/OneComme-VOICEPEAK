@@ -93,144 +93,142 @@ async def ws_recv(websocket, comment_que):
 
                 for commnent in data['data']['comments']:
 
+                    #送られてきたデータに読み上げるテキストがある場合のみ処理を行う
+                    #重複読み上げを防ぐために過去に読み上げたコメントIDをチェック
+                    if (
+                        'speechText' not in commnent['data'] or 
+                        commnent['data']['id'] in read_ids
+                        ):
+                        continue
+
                     #読み上げるファイル名で使用する
                     comment_id = str(uuid.uuid4())
-                    #送られてきたデータに読み上げるテキストがある場合のみ処理を行う
-                    if 'speechText' in commnent['data']:
 
-                        #ラインを出力
+                    # DEBUG: ラインを出力
+                    if config.DEBUG_FLAG:
+                        print('------\nコメントID : ' + commnent['data']['id'])
+
+                    #コメントの感情の初期値
+                    happy = config.EMOTION_HAPPY
+                    sad = config.EMOTION_SAD
+                    fun = config.EMOTION_FUN
+                    angry = config.EMOTION_ANGRY
+                    bosoboso = config.EMOTION_BOSOBOSO
+                    doyaru = config.EMOTION_DOYARU
+                    honwaka = config.EMOTION_HONWAKA
+                    teary = config.EMOTION_TEARY
+                    ochoushimono = config.EMOTION_OCHOUSHIMONO
+
+                    #タグの削除（絵文字や不具合文字なども含む）
+                    read_comment = str(commnent['data']['speechText']).replace('&lt;', '<').replace('&gt;', '>')
+                    read_comment = re.compile(r"<[^>]*?>").sub(' 略 ', read_comment)
+                    read_comment = read_comment.replace("｀", "")
+                    read_comment = read_comment.replace("`", "")
+                    read_comment = read_comment.replace("\\", " ")
+
+                    #半角カタカナを全角カタカナに
+                    read_comment = unicodedata.normalize('NFKC', read_comment)
+
+                    #コメントの改行やコーテーションを削除
+                    read_comment = read_comment.replace('\n', ' ').replace('&quot;', ' ').replace('&#39;', ' ').replace('"', ' ')
+
+                    #URL省略
+                    read_comment = re.sub('https?://[A-Za-z0-9_/:%#$&?()~.=+-]+?(?=https?:|[^A-Za-z0-9_/:%#$&?()~.=+-]|$)', ' URL略 ', read_comment)
+
+                    # wをワラと読むようにする
+
+                    #絵文字から感情データを追加
+                    if config.EMOTION_COMMENT:
+                        if '😊' in read_comment:
+                            happy = '100'
+                            honwaka = '100'
+                        if '😢' in read_comment:
+                            sad = '100'
+                            teary = '100'
+                        if '😆' in read_comment:
+                            fun = '100'
+                            doyaru = '100'
+                            ochoushimono = '100'
+                        if '😡' in read_comment:
+                            angry = '100'
+                        if '😶‍🌫️' in read_comment:
+                            bosoboso = '100'
+
+                    #コメントの文字数がオーバーした場合は強制カットして、以下略をつける
+                    if len(read_comment) > config.MAX_NUM_CHARACTERS:
+                        read_comment = read_comment[:config.MAX_NUM_CHARACTERS] + ' 以下略'
+
+                    #読み上げボイスをランダムにする
+                    read_voice_narrator = config.VOICE_NARRATOR
+                    if config.VOICE_NARRATOR == 'Japanese Female x':
+                        read_voice_narrator = 'Japanese Female ' + str(random.randrange(1, 4, 1))
+                    if config.VOICE_NARRATOR == 'Japanese Male x':
+                        read_voice_narrator = 'Japanese Male ' + str(random.randrange(1, 4, 1))
+
+                    #読み上げの性別変更
+                    if config.SEX_COMMENT:
+                        if '👨' in read_comment and read_voice_narrator != 'Japanese Female Child':
+                            read_voice_narrator = read_voice_narrator.replace('Female', 'Male')
+                            read_voice_narrator = read_voice_narrator.replace('Miyamai Moca', 'Frimomen')
+                        if '👩' in read_comment:
+                            read_voice_narrator = read_voice_narrator.replace('Male', 'Female')
+                            read_voice_narrator = read_voice_narrator.replace('Frimomen', 'Miyamai Moca')
+
+                    #読み上げファイル作成コマンド作成
+                    read_command = [
+                        config.VOICEPEAK_APP_FILEPATH,
+                        "-s", read_comment,
+                        "--speed", voice_speed,
+                        "--pitch", voice_pitch,
+                        "-o", config.OUTPUT_VOICE_DIRPATH + 'vp_' + comment_id + '.wav',
+                        "-n", read_voice_narrator
+                    ]
+                    option = []
+                    if 'Japanese' in read_voice_narrator:
+                        option = ['-e', 'happy=' + happy + ',sad=' + sad + ',fun=' + fun + ',angry=' + angry]
+                    elif 'Miyamai Moca' in read_voice_narrator:
+                        option = ['-e', 'bosoboso=' + bosoboso + ',doyaru=' + doyaru + ',honwaka=' + honwaka + ',angry=' + angry + ',teary=' + teary]
+                    elif 'Frimomen' in read_voice_narrator:
+                        option = ['-e', 'happy=' + happy + ',angry=' + angry + ',sad=' + sad + ',ochoushimono=' + ochoushimono]
+                    elif 'Kasane Teto' in read_voice_narrator:
+                        # TODO: とりあえず固定値
+                        option = ['-e', 'teto-overactive=0,teto-low-key=0,teto-whisper=0,teto-powerful=0,teto-sweet=0']
+
+                    if len(option) > 0:
+                        read_command.extend(option)
+
+
+                    if config.DEBUG_FLAG:
+                        print(read_command)
+
+                    #読み上げファイル作成
+                    for i in range(config.MAX_RETRY):
                         if config.DEBUG_FLAG:
-                            print('------')
+                            #read_command_result = 1 #失敗テスト用
+                            p = subprocess.Popen(read_command, shell = True)
+                        else:
+                            p = subprocess.Popen(read_command, shell = True, stderr = subprocess.PIPE)
 
-                        #コメントIDを出力
-                        if config.DEBUG_FLAG:
-                            print('コメントID : ' + commnent['data']['id'])
+                        read_command_result = p.wait()
 
-                        #重複読み上げを防ぐために過去に読み上げたコメントIDをチェック
-                        if commnent['data']['id'] not in read_ids:
+                        if read_command_result == 0:
+                            #キューに追加する（別スレッドでデキューする）
+                            comment_que.put((comment_id, voice_volume))
+                            print('success')
 
-                            #コメントの感情の初期値
-                            happy = config.EMOTION_HAPPY
-                            sad = config.EMOTION_SAD
-                            fun = config.EMOTION_FUN
-                            angry = config.EMOTION_ANGRY
-                            bosoboso = config.EMOTION_BOSOBOSO
-                            doyaru = config.EMOTION_DOYARU
-                            honwaka = config.EMOTION_HONWAKA
-                            teary = config.EMOTION_TEARY
-                            ochoushimono = config.EMOTION_OCHOUSHIMONO
-
-                            #タグの削除（絵文字や不具合文字なども含む）
-                            read_comment = str(commnent['data']['speechText']).replace('&lt;', '<').replace('&gt;', '>')
-                            read_comment = re.compile(r"<[^>]*?>").sub(' 略 ', read_comment)
-                            read_comment = read_comment.replace("｀", "")
-                            read_comment = read_comment.replace("`", "")
-                            read_comment = read_comment.replace("\\", " ")
-
-                            #半角カタカナを全角カタカナに
-                            read_comment = unicodedata.normalize('NFKC', read_comment)
-
-                            #コメントの改行やコーテーションを削除
-                            read_comment = read_comment.replace('\n', ' ').replace('&quot;', ' ').replace('&#39;', ' ').replace('"', ' ')
-
-                            #URL省略
-                            read_comment = re.sub('https?://[A-Za-z0-9_/:%#$&?()~.=+-]+?(?=https?:|[^A-Za-z0-9_/:%#$&?()~.=+-]|$)', ' URL略 ', read_comment)
-
-                            #絵文字から感情データを追加
-                            if config.EMOTION_COMMENT:
-                                if '😊' in read_comment:
-                                    happy = '100'
-                                    honwaka = '100'
-                                if '😢' in read_comment:
-                                    sad = '100'
-                                    teary = '100'
-                                if '😆' in read_comment:
-                                    fun = '100'
-                                    doyaru = '100'
-                                    ochoushimono = '100'
-                                if '😡' in read_comment:
-                                    angry = '100'
-                                if '😶‍🌫️' in read_comment:
-                                    bosoboso = '100'
-
-                            #コメントの文字数がオーバーした場合は強制カットして、以下略をつける
-                            if len(read_comment) > config.MAX_NUM_CHARACTERS:
-                                read_comment = read_comment[:config.MAX_NUM_CHARACTERS] + ' 以下略'
-
-                            #読み上げボイスをランダムにする
-                            read_voice_narrator = config.VOICE_NARRATOR
-                            if config.VOICE_NARRATOR == 'Japanese Female x':
-                                read_voice_narrator = 'Japanese Female ' + str(random.randrange(1, 4, 1))
-                            if config.VOICE_NARRATOR == 'Japanese Male x':
-                                read_voice_narrator = 'Japanese Male ' + str(random.randrange(1, 4, 1))
-
-                            #読み上げの性別変更
-                            if config.SEX_COMMENT:
-                                if '👨' in read_comment and read_voice_narrator != 'Japanese Female Child':
-                                    read_voice_narrator = read_voice_narrator.replace('Female', 'Male')
-                                    read_voice_narrator = read_voice_narrator.replace('Miyamai Moca', 'Frimomen')
-                                if '👩' in read_comment:
-                                    read_voice_narrator = read_voice_narrator.replace('Male', 'Female')
-                                    read_voice_narrator = read_voice_narrator.replace('Frimomen', 'Miyamai Moca')
-
-                            #読み上げファイル作成コマンド作成
-                            read_command = [
-                                config.VOICEPEAK_APP_FILEPATH,
-                                "-s", read_comment,
-                                "--speed", voice_speed,
-                                "--pitch", voice_pitch,
-                                "-o", config.OUTPUT_VOICE_DIRPATH + 'vp_' + comment_id + '.wav',
-                                "-n", read_voice_narrator
-                            ]
-                            option = []
-                            if 'Japanese' in read_voice_narrator:
-                                option = ['-e', 'happy=' + happy + ',sad=' + sad + ',fun=' + fun + ',angry=' + angry]
-                            elif 'Miyamai Moca' in read_voice_narrator:
-                                option = ['-e', 'bosoboso=' + bosoboso + ',doyaru=' + doyaru + ',honwaka=' + honwaka + ',angry=' + angry + ',teary=' + teary]
-                            elif 'Frimomen' in read_voice_narrator:
-                                option = ['-e', 'happy=' + happy + ',angry=' + angry + ',sad=' + sad + ',ochoushimono=' + ochoushimono]
-                            elif 'Kasane Teto' in read_voice_narrator:
-                                # TODO: とりあえず固定値
-                                option = ['-e', 'teto-overactive=0,teto-low-key=0,teto-whisper=0,teto-powerful=0,teto-sweet=0']
-
-                            if len(option) > 0:
-                                read_command.extend(option)
-
-
+                            #コメントIDを保存
+                            read_ids.add(commnent['data']['id'])
+                            break
+                        elif i == config.MAX_RETRY - 1:
                             if config.DEBUG_FLAG:
+                                print('ファイル作成失敗 ' + str(i + 1) + '回目')
+                            comment_que.put((comment_id, voice_volume))
+                            break
+                        else:
+                            if config.DEBUG_FLAG:
+                                print('ファイル作成失敗 ' + str(i + 1) + '回目')
                                 print(read_command)
-
-                            #読み上げファイル作成
-                            for i in range(config.MAX_RETRY):
-                                if config.DEBUG_FLAG:
-                                    #read_command_result = 1 #失敗テスト用
-                                    p = subprocess.Popen(read_command, shell = True)
-                                else:
-                                    p = subprocess.Popen(read_command,
-                                                         shell = True,
-                                                         stderr = subprocess.PIPE
-                                                         )
-
-                                read_command_result = p.wait()
-
-                                if read_command_result == 0:
-                                    #キューに追加する（別スレッドでデキューする）
-                                    comment_que.put((comment_id, voice_volume))
-                                    print('success')
-
-                                    #コメントIDを保存
-                                    read_ids.add(commnent['data']['id'])
-                                    break
-                                elif i == config.MAX_RETRY - 1:
-                                    if config.DEBUG_FLAG:
-                                        print('ファイル作成失敗 ' + str(i + 1) + '回目')
-                                    comment_que.put((comment_id, voice_volume))
-                                    break
-                                else:
-                                    if config.DEBUG_FLAG:
-                                        print('ファイル作成失敗 ' + str(i + 1) + '回目')
-                                        print(read_command)
-                                    time.sleep(0.5)
+                            time.sleep(0.5)
 
                     else:
                         if config.DEBUG_FLAG:
